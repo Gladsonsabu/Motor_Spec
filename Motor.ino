@@ -1,8 +1,5 @@
 /*
-
-
- *          
- *          
+        
 PINOUT to Custom Inbtegrated Board: 
  *        _________________________________________________________________________________
  *       |  ARDUINO UNO    >>>    Custom Development board   |    MEAS   |   ADS1115   |    
@@ -34,7 +31,7 @@ DHTStable DHT;
 Adafruit_ADS1115 ADS;
 LiquidCrystal_I2C lcd(0x27,16,2);
 movingAvg MAF(25);
-SoftwareSerial usb(3,2); //RX,TX
+SoftwareSerial Serialusb(3,2); //RX,TX
 
 void Serprint(float,float);
 float Irm(void);
@@ -46,6 +43,7 @@ void PrintMotorTemp(float);
 void PrintTH(void);
 int Vibration(bool);
 void datachk(float,double);
+void Classifier(int,int,int);
 
 struct
 {
@@ -68,6 +66,9 @@ float Voltage = 234.0;
 float Temperature_DHT = 0;
 float Humidity_DHT = 0;
 
+int ViberIntensity = 0;
+int ViberIntenseMAF = 0;
+
 double T_Motor = 0;
 
 const int SensorValueLow = 463; 
@@ -85,11 +86,13 @@ int noteDurations[] = {4, 8, 8, 4, 4, 4, 4, 4};
 
 float IRMSthresh = 8;
 float Tempthresh = 50;
+int Viberthresh = 8100;
+
 
 void setup() 
 {
-  Serial.begin(9600);
-//  usb.begin(115200);//@high speed 115200
+//  Serialusb.begin(9600);
+//  Serial.begin(115200);//@high speed 115200
   
   lcd.init(); 
   lcd.backlight();
@@ -112,18 +115,20 @@ void loop() {
   Power = Voltage * IRMS;
   getdht();
   T_Motor=getPT100();
-//  usb.print(IRMS);
-//  usb.print("\t");
-//  usb.print(Temperature_DHT);
-//  usb.print("\t");
-//  usb.print(Humidity_DHT);
-//  usb.print("\t");
-//  usb.println(T_Motor);
-//  usb.print("\t");
-//  usb.print(Vibration(1));
-//  usb.print("\t");
-//  usb.println(Vibration(0));
-//datachk();
+  ViberIntensity = Vibration(1);
+  ViberIntenseMAF = Vibration(0);
+  Serial.print(IRMS);
+  Serial.print("\t");
+  Serial.print(Temperature_DHT);
+  Serial.print("\t");
+  Serial.print(Humidity_DHT);
+  Serial.print("\t");
+  Serial.println(T_Motor);
+  Serial.print("\t");
+  Serial.print(ViberIntensity);
+  Serial.print("\t");
+  Serial.println(ViberIntenseMAF);
+//datachk(IRMS,T_Motor);
   if(millis() - t_prev > 2500){
     switch(lcdptr){
       case 1:
@@ -150,7 +155,7 @@ void loop() {
       case 4:
       {
         lcdsweepR();
-        datachk(IRMS,T_Motor);
+        datachk(IRMS,T_Motor,ViberIntensity);
         lcdptr = 1;
         break;
       }
@@ -197,12 +202,12 @@ void lcdsweepR(){
 }
 
 void PrintI(float value1, float value2){
-  Serial.print(F("Average RMS Current: "));
-  Serial. print(value1, 3);
-  Serial.print(F("A.\t\t"));
-  Serial.print(F("Power:"));
-  Serial.print(value2, 3);
-  Serial.println(F("W"));
+  Serialusb.print(F("Average RMS Current: "));
+  Serialusb.print(value1, 3);
+  Serialusb.print(F("A.\t\t"));
+  Serialusb.print(F("Power:"));
+  Serialusb.print(value2, 3);
+  Serialusb.println(F("W"));
   lcd.setCursor(2,0);
   lcd.print(F("I RMS :"));
   lcd.print(value1);
@@ -226,8 +231,8 @@ float Irms(){
     counter = counter +1;
     delay(3);
   }
-  Serial.print(F("Samples to calculate IRMS:"));
-  Serial.println(counter);
+  Serialusb.print(F("Samples to calculate IRMS:"));
+  Serialusb.println(counter);
   return(sqrt(Curr_sum / counter));
 }
 
@@ -237,11 +242,11 @@ void getdht(){
     {
     case DHTLIB_OK:
         counter.ok++;
-        Serial.println("DHT is OK,\t");
+        Serialusb.println("DHT is OK,\t");
         break;
     case DHTLIB_ERROR_CHECKSUM:
         counter.crc_error++;
-        Serial.println("Checksum error,\t");
+        Serialusb.println("Checksum error,\t");
         lcd.clear();
         lcd.setCursor(3,0);
         lcd.print(F("DHT ERROR"));
@@ -251,7 +256,7 @@ void getdht(){
         break;
     case DHTLIB_ERROR_TIMEOUT:
         counter.time_out++;
-        Serial.println("Time out error,\t");
+        Serialusb.println("Time out error,\t");
         lcd.clear();
         lcd.setCursor(3,0);
         lcd.print(F("DHT ERROR"));
@@ -261,7 +266,7 @@ void getdht(){
         break;
     default:
         counter.unknown++;
-        Serial.println("Unknown error,\t");
+        Serialusb.println("Unknown error,\t");
         lcd.clear();
         lcd.setCursor(3,0);
         lcd.print(F("DHT ERROR"));
@@ -285,12 +290,12 @@ void PrintTH(){
   lcd.print(F("RH:"));
   lcd.print(Humidity_DHT); 
   lcd.print(F("%"));
-  Serial.print(F("Ambient temperature: "));
-  Serial. print(Temperature_DHT, 3);
-  Serial.print(F("C.\t\t"));
-  Serial.print(F("Ambient Humidity:"));
-  Serial. print(Humidity_DHT, 3);
-  Serial.println(F("%"));
+  Serialusb.print(F("Ambient temperature: "));
+  Serialusb. print(Temperature_DHT, 3);
+  Serialusb.print(F("C.\t\t"));
+  Serialusb.print(F("Ambient Humidity:"));
+  Serialusb. print(Humidity_DHT, 3);
+  Serialusb.println(F("%"));
 }
 
 float getPT100(){
@@ -301,8 +306,8 @@ float getPT100(){
   Temp = Temp/SensorValueDiff;
   Temp = Temp*TempValueDiff;
   Temp = Temp+TempValueLow;
-  Serial.print(F("PT100 temperature readout ="));
-  Serial.println(Temp); // printing temperature on the serial monitor
+  Serialusb.print(F("PT100 temperature readout ="));
+  Serialusb.println(Temp); // printing temperature on the serial monitor
   return(Temp);
 }
 
@@ -314,8 +319,8 @@ void PrintMotorTemp(float value1){
   lcd.print(value1); 
   lcd.write(0);
   lcd.print(F("C"));
-  Serial.print(F("Motor temperature: "));
-  Serial.println(value1, 3);
+  Serialusb.print(F("Motor temperature: "));
+  Serialusb.println(value1, 3);
 }
 
 int Vibration(bool x){
@@ -325,7 +330,7 @@ int Vibration(bool x){
   else{return(VibMagAvg);}
 }
 
-void datachk(float IRMS, double Mtemp){
+void datachk(float IRMS, double Mtemp, int Viber){
   if (IRMS > IRMSthresh){
     _resume = true;
     while(_resume){
@@ -354,8 +359,7 @@ void datachk(float IRMS, double Mtemp){
       {
         int noteDuration = 1000 / noteDurations[thisNote];
         tone(6, melody[thisNote], noteDuration);
-        int pauseBetweenNotes = noteDuration * 1.30;
-        delay(pauseBetweenNotes);
+        delay(noteDuration * 1.30);
         noTone(6);
       }
       delay(1000);
@@ -365,15 +369,20 @@ void datachk(float IRMS, double Mtemp){
       }
     }
   }
-//  else if(IRMS>Viberthresh){
-//    while(IRMS>Viberthresh){
-//      lcd.setCursor(1,0);
-//      lcd.print(F("OVER VIBRATION"));
-//      lcd.setCursor(4,1);
-//      lcd.print(F("DETECTED"));
-//      delay(2500);
-//    }
-//  }
+  else if(Viber>Viberthresh){
+    _resume = true;
+    while(_resume){
+      lcd.setCursor(1,0);
+      lcd.print(F("OVER VIBRATION"));
+      lcd.setCursor(4,1);
+      lcd.print(F("DETECTED"));
+      delay(1000);
+      if(Viber < Viberthresh)
+      {
+        _resume = false;
+      }
+    }
+  }
   else{
     lcd.setCursor(1,0);
     lcd.print(F("ALL PARAMETERS"));
@@ -381,4 +390,18 @@ void datachk(float IRMS, double Mtemp){
     lcd.print(F("ARE OK"));
   }
   
+}
+
+void Classifier(int value1, int value2, int value3){//irms, difftemp, viber 
+  int x = map(value1, 0,30,0,100); // map(variable,from min, from max, to min, to max)
+  int y = constrain(value2, 40, 300);
+  y = map(y, 40,300,100,0);
+  int z = map(value3, 0,10000,0,100);
+  float score = (x+y+z)/3;
+  lcd.setCursor(2,0);
+  lcd.print(F("MOTOR HEALTH"));
+  lcd.setCursor(4,1);
+  lcd.print(F("SCORE = "));
+  lcd.print(score);
+  delay(2000);
 }
